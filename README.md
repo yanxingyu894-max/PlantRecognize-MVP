@@ -9,8 +9,4 @@
 - 历史记录：保存用户的识别历史。
 
 ## 技术栈
-- 架构：MVP
-- 开发语言：Kotlin
-- UI 框架：Jetpack Compose
-- 网络请求：Retrofit / OkHttp
-- 依赖注入：Dagger Hilt (可选)
+技术栈- 前端：Android(Kotlin)- 数据：本地JSON- 识别：免费植物API
