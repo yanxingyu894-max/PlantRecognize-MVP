@@ -23,5 +23,6 @@ data class PlantEntity(
     val feature: String,      // 形态特征
     val habit: String,        // 生长习性
     val care: String,         // 养护要点
-    val lastUpdate: Long = System.currentTimeMillis()  // 最后更新时间，默认当前时间
+    val lastUpdate: Long = System.currentTimeMillis(),  // 最后更新时间，默认当前时间
+    val isFavorite: Boolean = false  // 是否收藏
 )

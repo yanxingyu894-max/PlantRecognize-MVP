@@ -78,4 +78,18 @@ interface PlantDao {
      */
     @Query("SELECT COUNT(*) FROM plants")
     suspend fun getPlantCount(): Int
+
+
+
+    /**
+     * 更新植物的收藏状态
+     */
+    @Query("UPDATE plants SET isFavorite = :isFavorite WHERE id = :plantId")
+    suspend fun updateFavoriteStatus(plantId: String, isFavorite: Boolean)
+
+    /**
+     * 获取所有已收藏的植物列表
+     */
+    @Query("SELECT * FROM plants WHERE isFavorite = 1 ORDER BY name ASC")
+    fun getFavoritePlants(): Flow<List<PlantEntity>>
 }

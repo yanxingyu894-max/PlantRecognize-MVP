@@ -3,45 +3,136 @@ package com.example.afinal
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.afinal.ui.theme.FinalTheme
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.example.afinal.data.local.PlantDatabase
+import com.example.afinal.data.remote.RetrofitClient
+import com.example.afinal.data.repository.PlantRepository
+import com.example.afinal.ui.screens.*
+import com.example.afinal.ui.theme.PlantAssistantTheme
+import com.example.afinal.ui.viewmodel.PlantViewModel
+import com.example.afinal.ui.viewmodel.PlantViewModelFactory
 
+/**
+ * MainActivity —— 应用的主入口和导航中枢
+ */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+
+        val database = PlantDatabase.getDatabase(this)
+        // 使用新的 Trefle 和 PlantNet 服务
+        val repository = PlantRepository(
+            database.plantDao(),
+            RetrofitClient.trefleApiService,
+            RetrofitClient.plantNetApiService
+        )
+
         setContent {
-            FinalTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+            PlantAssistantTheme {
+                val navController = rememberNavController()
+                val viewModel: PlantViewModel = viewModel(
+                    factory = PlantViewModelFactory(repository)
+                )
+
+                NavHost(
+                    navController = navController,
+                    startDestination = "home" 
+                ) {
+                    // --- 首页 ---
+                    composable("home") {
+                        HomeScreen(
+                            onNavigateToList = { navController.navigateSafe("list") },
+                            onNavigateToFav = { navController.navigateSafe("fav") },
+                            onNavigateToRecognition = { navController.navigateSafe("recognition") },
+                            onNavigateToCategory = { navController.navigateSafe("category") }
+                        )
+                    }
+
+                    // --- 植物百科列表页 ---
+                    composable("list") {
+                        PlantListScreen(
+                            viewModel = viewModel,
+                            onBack = { navController.popBackStack() },
+                            onNavigateToDetail = { plantId ->
+                                navController.navigateSafe("detail/$plantId")
+                            }
+                        )
+                    }
+
+                    // --- 分类瀑布流列表页 ---
+                    composable("category") {
+                        PlantCategoryScreen(
+                            viewModel = viewModel,
+                            onBack = { navController.popBackStack() },
+                            onNavigateToDetail = { plantId ->
+                                navController.navigateSafe("detail/$plantId")
+                            }
+                        )
+                    }
+
+                    // --- 我的花园（收藏页） ---
+                    composable("fav") {
+                        FavoriteScreen(
+                            viewModel = viewModel,
+                            onBack = { navController.popBackStack() },
+                            onNavigateToDetail = { plantId ->
+                                navController.navigateSafe("detail/$plantId")
+                            }
+                        )
+                    }
+
+                    // --- AI 识别页 ---
+                    composable("recognition") {
+                        RecognitionScreen(
+                            viewModel = viewModel, // 传入 ViewModel 以进行真实识别
+                            onBack = { navController.popBackStack() },
+                            onNavigateToDetail = { plantId ->
+                                if (navController.currentBackStackEntry?.lifecycleIsResumed() == true) {
+                                    navController.navigate("detail/$plantId") {
+                                        popUpTo("recognition") { inclusive = true }
+                                    }
+                                }
+                            }
+                        )
+                    }
+
+                    // --- 植物详情页 ---
+                    composable(
+                        route = "detail/{plantId}",
+                        arguments = listOf(navArgument("plantId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val plantId = backStackEntry.arguments?.getString("plantId") ?: ""
+                        DetailScreen(
+                            plantId = plantId,
+                            viewModel = viewModel,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    FinalTheme {
-        Greeting("Android")
+/**
+ * 安全导航扩展：防止多次点击导致的重复跳转
+ */
+fun NavHostController.navigateSafe(route: String) {
+    if (currentBackStackEntry?.lifecycleIsResumed() == true) {
+        navigate(route)
     }
 }
+
+/**
+ * 检查当前 BackStackEntry 是否处于 RESUMED 状态
+ */
+fun NavBackStackEntry.lifecycleIsResumed() =
+    this.lifecycle.currentState == Lifecycle.State.RESUMED

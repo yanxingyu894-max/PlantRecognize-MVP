@@ -4,44 +4,41 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 
-/**
- * Retrofit单例客户端 —— 管理网络请求实例
- * object = Kotlin单例，全局只有一个实例
- */
 object RetrofitClient {
 
-    // 使用JSONPlaceholder作为公共Mock API（免费测试用）
-    // 注意：必须以 / 结尾！
-    private const val BASE_URL = "https://jsonplaceholder.typicode.com/"
+    private const val TREFLE_BASE_URL = "https://trefle.io/"
+    private const val PLANTNET_BASE_URL = "https://my-api.plantnet.org/"
 
-    /**
-     * 日志拦截器 —— 开发时查看请求/响应详情
-     */
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY  // 打印完整body
+        level = HttpLoggingInterceptor.Level.BODY
     }
 
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor(loggingInterceptor)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    /**
-     * 懒加载 by lazy —— 第一次使用时才创建，节省内存
-     */
-    private val retrofit: Retrofit by lazy {
-        Retrofit.Builder()
-            .baseUrl(BASE_URL)                          // 基础URL，所有接口的公共前缀
-            .client(okHttpClient)                        // 配置OkHttp客户端（带日志）
-            .addConverterFactory(GsonConverterFactory.create())  // JSON自动解析为Kotlin对象
+    private fun createRetrofit(baseUrl: String): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl(baseUrl)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create())
             .build()
     }
 
-    /**
-     * 创建API服务实例
-     * create() 方法会自动生成 PlantApiService 接口的实现类
-     */
+    val trefleApiService: TrefleApiService by lazy {
+        createRetrofit(TREFLE_BASE_URL).create(TrefleApiService::class.java)
+    }
+
+    val plantNetApiService: PlantNetApiService by lazy {
+        createRetrofit(PLANTNET_BASE_URL).create(PlantNetApiService::class.java)
+    }
+    
+    // 保留旧的，如果还有地方用的话，或者统一替换
     val plantApiService: PlantApiService by lazy {
-        retrofit.create(PlantApiService::class.java)
+        createRetrofit("https://jsonplaceholder.typicode.com/").create(PlantApiService::class.java)
     }
 }

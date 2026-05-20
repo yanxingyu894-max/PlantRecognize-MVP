@@ -13,5 +13,6 @@ data class Plant(
     val desc: String,
     val feature: String,
     val habit: String,
-    val care: String
+    val care: String,
+    val isFavorite: Boolean
 )

@@ -3,144 +3,156 @@ package com.example.afinal.data.repository
 import com.example.afinal.data.local.PlantDao
 import com.example.afinal.data.local.PlantEntity
 import com.example.afinal.data.model.Plant
-import com.example.afinal.data.model.PlantDto
-import com.example.afinal.data.remote.PlantApiService
+import com.example.afinal.data.model.TreflePlantData
+import com.example.afinal.data.remote.PlantNetApiService
+import com.example.afinal.data.remote.TrefleApiService
+import com.google.gson.JsonElement
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import java.io.File
 
-/**
- * PlantRepository —— 单一数据源（Single Source of Truth）
- *
- * 核心逻辑：
- * 1. UI层只订阅数据库的 Flow，实现响应式更新。
- * 2. 刷新操作从 API 获取数据并存入数据库，数据库变化后 UI 会自动刷新。
- */
 class PlantRepository(
     private val plantDao: PlantDao,
-    private val plantApiService: PlantApiService
+    private val trefleApi: TrefleApiService,
+    private val plantNetApi: PlantNetApiService
 ) {
+    private val TREFLE_TOKEN = "usr-uR7Pwb7ku_SiptQTrntLgOF2F1UsH0aoWLam67uROe8"
+    private val PLANTNET_KEY = "2b10jZ1ZMitX6HCPM0jqVlWjhO"
 
-    // ==================== 1. 查询操作（从本地数据库读取） ====================
+    val favoritePlants: Flow<List<Plant>> = plantDao.getFavoritePlants().map { entities ->
+        entities.map { it.toPlant() }
+    }
 
-    /**
-     * 获取所有植物 —— 返回 Flow，自动响应数据库变化
-     */
     val allPlants: Flow<List<Plant>> = plantDao.getAllPlants().map { entities ->
         entities.map { it.toPlant() }
     }
 
-    /**
-     * 按分类获取植物
-     */
-    fun getPlantsByCategory(category: String): Flow<List<Plant>> =
-        plantDao.getPlantsByCategory(category).map { entities ->
-            entities.map { it.toPlant() }
-        }
+    suspend fun updateFavoriteStatus(id: String, isFavorite: Boolean) {
+        plantDao.updateFavoriteStatus(id, isFavorite)
+    }
 
-    /**
-     * 根据ID获取单个植物详情（核心逻辑：本地优先）
-     */
     suspend fun getPlantById(id: String): Plant? {
-        // 先查本地
         val local = plantDao.getPlantById(id)
         if (local != null) return local.toPlant()
 
-        // 本地没有，尝试从网络获取并缓存
         return try {
-            val remoteDto = plantApiService.getPlantById(id)
-            plantDao.insertPlant(remoteDto.toEntity())
-            remoteDto.toPlant()
+            val response = trefleApi.getPlantById(id.toInt(), TREFLE_TOKEN)
+            val entity = response.data.toEntity()
+            plantDao.insertPlant(entity)
+            entity.toPlant()
         } catch (e: Exception) {
             e.printStackTrace()
             null
         }
     }
 
-    // ==================== 2. 同步操作（从网络更新数据库） ====================
-
-    /**
-     * 刷新所有植物数据
-     */
-    suspend fun refreshPlants(): Result<List<Plant>> {
+    suspend fun identifyAndFetchDetails(imageFile: File): Result<Plant> {
         return try {
-            val dtos = plantApiService.getAllPlants()
-            // 将网络对象转换为数据库实体并保存
-            val entities = dtos.map { it.toEntity() }
+            val requestFile = imageFile.asRequestBody("image/*".toMediaTypeOrNull())
+            val imagePart = MultipartBody.Part.createFormData("images", imageFile.name, requestFile)
+            val organPart = MultipartBody.Part.createFormData("organs", "leaf")
+
+            val idResult = plantNetApi.identifyPlant(
+                images = listOf(imagePart),
+                organs = listOf(organPart),
+                apiKey = PLANTNET_KEY
+            )
+
+            val bestMatch = idResult.results.firstOrNull() ?: return Result.failure(Exception("未识别到植物"))
+            val scientificName = bestMatch.species.scientificNameWithoutAuthor
+
+            val searchResult = trefleApi.searchPlants(TREFLE_TOKEN, scientificName)
+            val treflePlant = searchResult.data.firstOrNull() ?: return Result.failure(Exception("百科库暂未收录该植物详情"))
+
+            // 获取详情以获得 growth 和 specifications
+            val detailResponse = trefleApi.getPlantById(treflePlant.id, TREFLE_TOKEN)
+            val finalData = detailResponse.data
+            
+            val entity = finalData.toEntity()
+            plantDao.insertPlant(entity)
+            
+            Result.success(entity.toPlant())
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun refreshPlants(): Result<Unit> {
+        return try {
+            val response = trefleApi.getPlants(TREFLE_TOKEN)
+            val entities = response.data.map { it.toEntity() }
             plantDao.insertAllPlants(entities)
-            // 返回转换后的业务模型
-            Result.success(dtos.map { it.toPlant() })
+            Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
+    // ==================== 转换与修复逻辑 ====================
+
     /**
-     * 按分类刷新数据
+     * 核心修复：处理 Trefle API 中动态类型的 family 和 genus
      */
-    suspend fun refreshPlantsByCategory(category: String): Result<List<Plant>> {
+    private fun JsonElement?.extractName(): String? {
+        if (this == null || this.isJsonNull) return null
         return try {
-            val dtos = plantApiService.getPlantsByCategory(category)
-            plantDao.insertAllPlants(dtos.map { it.toEntity() })
-            Result.success(dtos.map { it.toPlant() })
+            if (this.isJsonObject) {
+                this.asJsonObject.get("name")?.asString
+            } else {
+                this.asString
+            }
         } catch (e: Exception) {
-            Result.failure(e)
+            null
         }
     }
 
-    // ==================== 3. 内部转换方法（私有扩展函数） ====================
+    private fun TreflePlantData.toEntity(): PlantEntity {
+        val spec = mainSpecies?.specifications
+        val growth = mainSpecies?.growth
+        
+        val finalName = commonName ?: scientificName
+        val familyName = family.extractName() ?: familyCommonName ?: "未知科属"
+        val genusName = genus.extractName() ?: "植物"
 
-    /**
-     * 数据库实体 (PlantEntity) -> 业务模型 (Plant)
-     */
-    private fun PlantEntity.toPlant(): Plant {
-        return Plant(
-            id = id,
-            name = name,
-            alias = alias,
-            family = family,
-            category = category,
-            imageUrl = imageUrl,
-            desc = desc,
-            feature = feature,
-            habit = habit,
-            care = care
-        )
-    }
+        // 描述补全：如果 API 没给描述，自动生成一段基于学名和科属的描述
+        val description = growth?.description ?: "该植物在生物学上被归类为 $familyName 下的 $genusName 属。学名为 $scientificName。由于其独特的生长特性，在自然界中占有一席之地。"
+        
+        val height = spec?.averageHeight?.cm?.let { "$it" } ?: "未知"
+        
+        // 将数字等级转化为用户友好的描述
+        val lightReq = when(growth?.light) {
+            in 0..3 -> "耐阴"
+            in 4..6 -> "半日照"
+            in 7..10 -> "喜光"
+            else -> "未知"
+        }
+        
+        val humidityReq = when(growth?.atmosphericHumidity) {
+            in 0..3 -> "耐旱"
+            in 4..6 -> "适中"
+            in 7..10 -> "喜湿"
+            else -> "未知"
+        }
 
-    /**
-     * 网络模型 (PlantDto) -> 数据库实体 (PlantEntity)
-     */
-    private fun PlantDto.toEntity(): PlantEntity {
         return PlantEntity(
-            id = id,
-            name = name,
-            alias = alias,
-            family = family,
-            category = category,
-            imageUrl = imageUrl,
-            desc = desc,
-            feature = feature,
-            habit = habit,
-            care = care,
-            lastUpdate = System.currentTimeMillis()
+            id = id.toString(),
+            name = finalName.replaceFirstChar { it.uppercase() },
+            alias = scientificName,
+            family = familyName,
+            category = genusName,
+            imageUrl = imageUrl ?: "",
+            desc = description,
+            feature = "生长形态: ${spec?.growthHabit ?: "直立"}. 平均成熟高度: $height cm",
+            habit = "光照: $lightReq. 湿度需求: $humidityReq",
+            care = "养护建议: 这种来自 $familyName 的植物毒性评级为 ${spec?.toxicity ?: "未知"}。建议保持环境通风，遵循其生长习性，干透后适量浇水。",
+            isFavorite = false
         )
     }
 
-    /**
-     * 网络模型 (PlantDto) -> 业务模型 (Plant)
-     */
-    private fun PlantDto.toPlant(): Plant {
-        return Plant(
-            id = id,
-            name = name,
-            alias = alias,
-            family = family,
-            category = category,
-            imageUrl = imageUrl,
-            desc = desc,
-            feature = feature,
-            habit = habit,
-            care = care
-        )
-    }
+    private fun PlantEntity.toPlant() = Plant(
+        id, name, alias, family, category, imageUrl, desc, feature, habit, care, isFavorite
+    )
 }
