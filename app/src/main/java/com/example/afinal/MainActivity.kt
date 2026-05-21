@@ -31,6 +31,7 @@ class MainActivity : ComponentActivity() {
         // 使用新的 Trefle 和 PlantNet 服务
         val repository = PlantRepository(
             database.plantDao(),
+            database.userDao(),
             RetrofitClient.trefleApiService,
             RetrofitClient.plantNetApiService
         )
@@ -52,7 +53,9 @@ class MainActivity : ComponentActivity() {
                             onNavigateToList = { navController.navigateSafe("list") },
                             onNavigateToFav = { navController.navigateSafe("fav") },
                             onNavigateToRecognition = { navController.navigateSafe("recognition") },
-                            onNavigateToCategory = { navController.navigateSafe("category") }
+                            onNavigateToCategory = { navController.navigateSafe("category") },
+                            onNavigateToMy = { navController.navigateSafe("my") },
+                            viewModel = viewModel
                         )
                     }
 
@@ -67,18 +70,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // --- 分类瀑布流列表页 ---
-                    composable("category") {
-                        PlantCategoryScreen(
-                            viewModel = viewModel,
-                            onBack = { navController.popBackStack() },
-                            onNavigateToDetail = { plantId ->
-                                navController.navigateSafe("detail/$plantId")
-                            }
-                        )
-                    }
-
-                    // --- 我的花园（收藏页） ---
+                    // --- 收藏页 ---
                     composable("fav") {
                         FavoriteScreen(
                             viewModel = viewModel,
@@ -89,10 +81,45 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // --- AI 识别页 ---
+                    // --- 分类页 ---
+                    composable("category") {
+                        PlantCategoryScreen(
+                            viewModel = viewModel,
+                            onBack = { navController.popBackStack() },
+                            onNavigateToDetail = { plantId ->
+                                navController.navigateSafe("detail/$plantId")
+                            }
+                        )
+                    }
+
+                    // --- 我的页 ---
+                    composable("my") {
+                        MyScreen(
+                            viewModel = viewModel,
+                            onNavigateToHome = { navController.navigateSafe("home") },
+                            onLogin = { navController.navigateSafe("login") },
+                            onRegister = { navController.navigateSafe("register") },
+                            onAbout = { navController.navigateSafe("about") },
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    // --- 登录/注册/关于 ---
+                    composable("login") {
+                        LoginScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+                    }
+
+                    composable("register") {
+                        RegisterScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+                    }
+
+                    composable("about") {
+                        AboutScreen(onBack = { navController.popBackStack() })
+                    }
+
                     composable("recognition") {
                         RecognitionScreen(
-                            viewModel = viewModel, // 传入 ViewModel 以进行真实识别
+                            viewModel = viewModel,
                             onBack = { navController.popBackStack() },
                             onNavigateToDetail = { plantId ->
                                 if (navController.currentBackStackEntry?.lifecycleIsResumed() == true) {

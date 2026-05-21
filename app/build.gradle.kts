@@ -18,6 +18,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Read API keys from project properties (set in gradle.properties or via -P)
+        buildConfigField("String", "PLANTNET_API_KEY", "\"${project.findProperty("PLANTNET_API_KEY") ?: ""}\"")
+        buildConfigField("String", "TREFLE_API_TOKEN", "\"${project.findProperty("TREFLE_API_TOKEN") ?: ""}\"")
     }
 
     buildTypes {
@@ -40,6 +43,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -87,4 +91,6 @@ dependencies {
 
     // 图片加载库
     implementation(libs.coil.compose)
+    // 下拉刷新（Accompanist）
+    implementation("com.google.accompanist:accompanist-swiperefresh:0.30.1")
 }

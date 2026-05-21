@@ -1,4 +1,5 @@
 package com.example.afinal.data.remote
+
 import com.example.afinal.data.model.PlantDto
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -7,36 +8,48 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 /**
- * Retrofit API接口 —— 定义所有网络请求方法
- * 你只需要写接口+注解，Retrofit自动生成实现类
+ * 本地模拟植物数据 API 接口
+ * 作用：定义应用内模拟植物数据的所有网络请求方法
+ * 采用 Retrofit 注解方式声明请求，无需编写实现类，由框架自动生成
+ * 适用于本地调试、模拟接口、无真实后端时的数据交互
  */
 interface PlantApiService {
+
     /**
-     * GET请求 —— 获取所有植物列表
-     * @GET 标记这是一个GET请求，括号内是API路径（相对路径）
+     * GET 请求：获取全部植物列表
+     * 请求路径：plants
+     * 无请求参数
+     * @return List<PlantDto> 植物基础数据列表，与网络返回 JSON 结构对齐
      */
     @GET("plants")
     suspend fun getAllPlants(): List<PlantDto>
 
     /**
-     * GET请求 —— 根据ID获取单个植物详情
-     * @Path("id") 将URL中的{id}替换为传入的参数值
-     * 例如：传入 "123" → 请求路径变成 plants/123
+     * GET 请求：根据植物 ID 获取单条植物详情
+     * 路径参数：{id} 会被方法参数自动替换
+     * 示例：传入 id = "1001" → 请求路径 plants/1001
+     * @param id 植物唯一标识 ID
+     * @return PlantDto 对应 ID 的植物基础数据
      */
     @GET("plants/{id}")
     suspend fun getPlantById(@Path("id") id: String): PlantDto
 
     /**
-     * GET请求 —— 按分类搜索植物
-     * @Query("category") 会生成 ?category=xxx 的查询参数
-     * 例如：传入 "绿植" → 请求路径变成 plants?category=绿植
+     * GET 请求：按分类筛选植物列表
+     * 查询参数：自动拼接为 ?category=xxx
+     * 示例：传入 category = "多肉" → 请求路径 plants?category=多肉
+     * @param category 植物分类名称（如多肉、绿植、药用）
+     * @return List<PlantDto> 该分类下的植物数据列表
      */
     @GET("plants")
     suspend fun getPlantsByCategory(@Query("category") category: String): List<PlantDto>
 
     /**
-     * POST请求 —— 添加新植物（模拟）
-     * @Body 将对象转成JSON字符串作为请求体发送
+     * POST 请求：新增一条植物数据（模拟）
+     * 请求体：将 PlantDto 对象转为 JSON 作为 body 发送
+     * 适用于本地模拟添加、测试数据提交逻辑
+     * @param plant 待添加的植物基础数据
+     * @return PlantDto 添加成功后返回的完整数据
      */
     @POST("plants")
     suspend fun createPlant(@Body plant: PlantDto): PlantDto
