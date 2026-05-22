@@ -21,14 +21,13 @@ import com.example.afinal.ui.viewmodel.PlantViewModel
 import com.example.afinal.ui.viewmodel.PlantViewModelFactory
 
 /**
- * MainActivity —— 应用的主入口和导航中枢
+ * MainActivity —— Main Entry and Optimized Navigation Controller Hub
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         val database = PlantDatabase.getDatabase(this)
-        // 使用新的 Trefle 和 PlantNet 服务
         val repository = PlantRepository(
             database.plantDao(),
             database.userDao(),
@@ -45,9 +44,9 @@ class MainActivity : ComponentActivity() {
 
                 NavHost(
                     navController = navController,
-                    startDestination = "home" 
+                    startDestination = "home"
                 ) {
-                    // --- 首页 ---
+                    // --- Home Screen ---
                     composable("home") {
                         HomeScreen(
                             onNavigateToList = { navController.navigateSafe("list") },
@@ -55,11 +54,12 @@ class MainActivity : ComponentActivity() {
                             onNavigateToRecognition = { navController.navigateSafe("recognition") },
                             onNavigateToCategory = { navController.navigateSafe("category") },
                             onNavigateToMy = { navController.navigateSafe("my") },
+                            onNavigateToDetail = { plantId -> navController.navigateSafe("detail/$plantId") },
                             viewModel = viewModel
                         )
                     }
 
-                    // --- 植物百科列表页 ---
+                    // --- Plant Encyclopedia List ---
                     composable("list") {
                         PlantListScreen(
                             viewModel = viewModel,
@@ -70,7 +70,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // --- 收藏页 ---
+                    // --- Collection Favorites ---
                     composable("fav") {
                         FavoriteScreen(
                             viewModel = viewModel,
@@ -81,7 +81,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // --- 分类页 ---
+                    // --- Refined Grouped Staggered Category Screen ---
                     composable("category") {
                         PlantCategoryScreen(
                             viewModel = viewModel,
@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // --- 我的页 ---
+                    // --- My Garden Info Page ---
                     composable("my") {
                         MyScreen(
                             viewModel = viewModel,
@@ -104,19 +104,33 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // --- 登录/注册/关于 ---
+                    // --- Authentication Screens ---
                     composable("login") {
-                        LoginScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+                        LoginScreen(
+                            viewModel = viewModel,
+                            onNavigateToRegister = { navController.navigateSafe("register") },
+                            onLoginSuccess = {
+                                navController.navigate("my") {
+                                    popUpTo("login") { inclusive = true }
+                                }
+                            },
+                            onBack = { navController.popBackStack() }
+                        )
                     }
 
                     composable("register") {
-                        RegisterScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+                        RegisterScreen(
+                            viewModel = viewModel,
+                            onNavigateToLogin = { navController.navigateSafe("login") },
+                            onBack = { navController.popBackStack() }
+                        )
                     }
 
                     composable("about") {
                         AboutScreen(onBack = { navController.popBackStack() })
                     }
 
+                    // --- AI Camera Scanner ---
                     composable("recognition") {
                         RecognitionScreen(
                             viewModel = viewModel,
@@ -131,7 +145,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // --- 植物详情页 ---
+                    // --- Plant Encyclopedia Detail Page ---
                     composable(
                         route = "detail/{plantId}",
                         arguments = listOf(navArgument("plantId") { type = NavType.StringType })
@@ -150,7 +164,7 @@ class MainActivity : ComponentActivity() {
 }
 
 /**
- * 安全导航扩展：防止多次点击导致的重复跳转
+ * Safe navigation utility to block duplicate execution triggers
  */
 fun NavHostController.navigateSafe(route: String) {
     if (currentBackStackEntry?.lifecycleIsResumed() == true) {
@@ -159,7 +173,7 @@ fun NavHostController.navigateSafe(route: String) {
 }
 
 /**
- * 检查当前 BackStackEntry 是否处于 RESUMED 状态
+ * Validates whether the controller transaction backstack is active
  */
 fun NavBackStackEntry.lifecycleIsResumed() =
     this.lifecycle.currentState == Lifecycle.State.RESUMED
