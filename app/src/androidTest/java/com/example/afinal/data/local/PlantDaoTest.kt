@@ -2,7 +2,7 @@
 * 该测试文件已失效（数据库经迭代已变化）
 * */
 
-//package com.example.afinal.data.local
+package com.example.afinal.data.local
 //
 //import android.content.Context
 //import androidx.room.Room
