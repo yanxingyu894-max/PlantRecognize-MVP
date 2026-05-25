@@ -20,14 +20,14 @@ interface PlantDao {
     @Delete
     suspend fun deletePlant(plant: PlantEntity)
 
-        @Query("SELECT * FROM plants WHERE id = :plantId")
-        suspend fun getPlantById(plantId: String): PlantEntity?
+    @Query("SELECT * FROM plants WHERE id = :plantId")
+    suspend fun getPlantById(plantId: String): PlantEntity?
 
     /**
      * 按最后更新时间降序获取所有植物，适用于首页展示（新数据置顶）。
      * 使用 Flow 实现自动响应式更新。
      */
-    @Query("SELECT * FROM plants ORDER BY lastUpdate DESC")
+    @Query("SELECT * FROM plants ORDER BY slug ASC")
     fun getAllPlants(): Flow<List<PlantEntity>>
 
     @Query("SELECT * FROM plants WHERE category = :category ORDER BY name ASC")

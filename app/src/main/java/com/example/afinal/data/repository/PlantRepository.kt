@@ -11,7 +11,10 @@ import com.example.afinal.BuildConfig
 import com.example.afinal.data.remote.TrefleApiService
 import com.example.afinal.util.HashUtils
 import com.google.gson.JsonElement
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -36,10 +39,16 @@ class PlantRepository(
         entities.map { it.toPlant() }
     }
 
+    // Expose a flow to check if there are any unprocessed local plant records
+    val hasPendingDetails: Flow<Boolean> = plantDao.getAllPlants().map { entities ->
+        entities.any { !it.isDetailLoaded }
+    }
+
     suspend fun updateFavoriteStatus(id: String, isFavorite: Boolean) {
         plantDao.updateFavoriteStatus(id, isFavorite)
     }
 
+    // This fulfills Rule 1: Priority secondary fetch when tapped directly
     suspend fun getPlantById(id: String, forceRefresh: Boolean = false): Plant? {
         val local = plantDao.getPlantById(id)
 
@@ -102,7 +111,7 @@ class PlantRepository(
     private fun createFallbackEntity(species: PlantNetSpecies, confidence: Double): PlantEntity {
         val name = if (species.commonNames.isNotEmpty()) species.commonNames[0] else species.scientificNameWithoutAuthor
         return PlantEntity(
-            id = "fallback_${System.currentTimeMillis()}",
+            id = "fallback_${species.scientificName.hashCode()}",
             name = name,
             alias = species.scientificName,
             scientificName = species.scientificName,
@@ -124,22 +133,13 @@ class PlantRepository(
 
             val favoriteIds = plantDao.getFavoriteIds().toSet()
 
+            // Optimized: ONLY map to local entities to prevent blocking initial load
             val fullEntities = listResponse.data.map { dto ->
-                val slug = dto.slug
-                if (slug != null) {
-                    try {
-                        val detailResp = trefleApi.getPlantBySlug(slug, TREFLE_TOKEN)
-                        var entity = detailResp.data.toEntity(isDetail = true)
-                        if (favoriteIds.contains(entity.id)) {
-                            entity = entity.copy(isFavorite = true)
-                        }
-                        entity
-                    } catch (e: Exception) {
-                        dto.toEntity(isDetail = false)
-                    }
-                } else {
-                    dto.toEntity(isDetail = false)
+                var entity = dto.toEntity(isDetail = false)
+                if (favoriteIds.contains(entity.id)) {
+                    entity = entity.copy(isFavorite = true)
                 }
+                entity
             }
 
             plantDao.insertAllPlants(fullEntities)
@@ -147,6 +147,41 @@ class PlantRepository(
         } catch (e: Exception) {
             Log.e("PlantRepository", "Random plant fetch failed", e)
             Result.failure(e)
+        }
+    }
+
+    // Handles executing secondary queries. Support gradual (Rule 3) and immediate processing (Rule 2)
+    suspend fun fetchPendingDetails(immediate: Boolean) {
+        try {
+            val allLocal = plantDao.getAllPlants().first()
+            val pending = allLocal.filter { !it.isDetailLoaded && it.slug.isNotBlank() }
+
+            for (entity in pending) {
+                try {
+                    val detailResp = trefleApi.getPlantBySlug(entity.slug, TREFLE_TOKEN)
+                    var updatedEntity = detailResp.data.toEntity(isDetail = true)
+
+                    plantDao.deletePlant(entity) // trefle中的id居然不是主键！！！
+
+
+                    if (entity.isFavorite) {
+                        updatedEntity = updatedEntity.copy(isFavorite = true)
+                    }
+                    plantDao.insertPlant(updatedEntity)
+                    if (!immediate) {
+                        // Delay to execute gradually & prevent choking the UI thread or rate limits
+                        delay(200)
+                    }
+                } catch (e: CancellationException) {
+                    throw e // Propagate cancellation so the suspend function can be safely aborted
+                } catch (e: Exception) {
+                    Log.e("PlantRepository", "Background detail fetch failed: ${entity.slug}", e)
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e("PlantRepository", "Failed to fetch pending details", e)
         }
     }
 

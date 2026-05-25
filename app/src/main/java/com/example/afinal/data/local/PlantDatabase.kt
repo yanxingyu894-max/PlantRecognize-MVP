@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [PlantEntity::class, UserEntity::class],
-    version = 3, // Bumped to 3 to safely trigger destructive migration and rebuild schema
+    version = 1,
     exportSchema = false
 )
 abstract class PlantDatabase : RoomDatabase() {
@@ -28,8 +28,8 @@ abstract class PlantDatabase : RoomDatabase() {
         }
 
         private fun buildDatabase(context: Context): PlantDatabase {
-//            val dbName = "plant_database"
-//            context.deleteDatabase(dbName)
+//                    val dbName = "plant_database"
+//                    context.deleteDatabase(dbName)
 
             return Room.databaseBuilder(
                 context.applicationContext,
