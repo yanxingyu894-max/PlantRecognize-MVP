@@ -26,6 +26,10 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
     private val _loggedInUserId = MutableStateFlow<String?>(null)
     val loggedInUserId: StateFlow<String?> = _loggedInUserId.asStateFlow()
 
+    // 观察仓库中的当前用户 ID
+    val currentUserId: StateFlow<String> = repository.currentUserId
+        .stateIn(viewModelScope, SharingStarted.Eagerly, PlantRepository.GUEST_USER_ID)
+
     // Persistent Daily Plant to prevent refreshing on every HomeScreen recomposition
     private val _dailyPlant = MutableStateFlow<Plant?>(null)
     val dailyPlant: StateFlow<Plant?> = _dailyPlant.asStateFlow()
@@ -48,6 +52,7 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
     private val _isExternalSearching = MutableStateFlow(false)
     val isExternalSearching: StateFlow<Boolean> = _isExternalSearching.asStateFlow()
 
+    // 核心数据流：会自动随 repository.currentUserId 的改变而切换数据源
     val allPlants: StateFlow<List<Plant>> = combine(
         _searchQuery,
         _selectedCategory,
@@ -55,7 +60,6 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
         _externalSearchResults
     ) { query, category, plants, external ->
         val localFiltered = plants.filter { plant ->
-            // Requirement: Hide cards with empty image data
             val hasImage = plant.imageUrl.isNotBlank()
             val matchesQuery = plant.name.contains(query, ignoreCase = true) ||
                     plant.alias.contains(query, ignoreCase = true)
@@ -76,7 +80,6 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
 
     val favoritePlants: StateFlow<List<Plant>> = repository.favoritePlants
         .map { list -> 
-            // Requirement: Hide cards with empty image data
             list.filter { it.imageUrl.isNotBlank() } 
         }
         .stateIn(
@@ -87,7 +90,6 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
 
     val initialPlants: StateFlow<List<Plant>> = repository.allPlants
         .map { list ->
-            // Requirement: Hide cards with empty image data
             val filtered = list.filter { it.imageUrl.isNotBlank() }
             if (filtered.size <= 100) filtered else filtered.take(100)
         }
@@ -112,10 +114,8 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
     init {
         loadInitialPlants()
 
-        // Assign daily plant once on load
         viewModelScope.launch {
             repository.allPlants.collect { list ->
-                // Requirement: Exclude them from daily care guide samples
                 val validPlants = list.filter { it.imageUrl.isNotBlank() }
                 if (validPlants.isNotEmpty() && _dailyPlant.value == null) {
                     _dailyPlant.value = validPlants.random()
@@ -184,7 +184,7 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
     }
 
     fun syncAllPendingDetailsNow() {
-        syncJob?.cancel() // Cancel the slower delayed background syncing queue
+        syncJob?.cancel() 
         syncJob = viewModelScope.launch {
             _isSyncingDetails.value = true
             repository.fetchPendingDetails(immediate = true)
@@ -192,7 +192,6 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
         }
     }
 
-    // Returning result to allow UI navigation and state handling
     suspend fun registerUser(username: String, password: String, agree: Boolean): Result<Unit> {
         return repository.registerUser(username, password, agree)
     }
@@ -201,16 +200,30 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
         val result = repository.loginUser(username, password)
         if (result.isSuccess) {
             _loggedInUserId.value = username
+            // 登录后尝试加载新用户的数据（如果为空则抓取）
+            loadInitialPlants()
         }
         return result
     }
 
     fun logout() {
+        // 1. 重置搜索和过滤状态，防止因筛选条件不匹配导致列表为空
+        _searchQuery.value = ""
+        _selectedCategory.value = null
+        _externalSearchResults.value = emptyList()
+
+        // 2. 调用仓库登出，切换 currentUserId 为 guest_user
+        repository.logout()
         _loggedInUserId.value = null
+
+        // 3. 清空每日推荐，让它在切换到游客数据后重新随机选择
+        _dailyPlant.value = null
+
+        // 4. 重新加载/同步游客数据
+        loadInitialPlants()
     }
 
     fun toggleFavorite(plant: Plant) {
-        // Now plant.id holds the slug as the primary identifier
         viewModelScope.launch { repository.updateFavoriteStatus(plant.id, !plant.isFavorite) }
     }
 
@@ -234,7 +247,6 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
     }
 
     suspend fun getPlantById(id: String): Plant? {
-        // Redirect to slug-based fetch as slug is now the primary key
         return repository.getPlantBySlug(id)
     }
 }

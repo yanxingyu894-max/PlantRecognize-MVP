@@ -1,16 +1,24 @@
 package com.example.afinal.data.local
 
 import androidx.room.Entity
-import androidx.room.PrimaryKey
 
 /**
  * Room Entity mapping to the "plants" table.
  * Expanded to cover all requested Trefle API properties for precise UI display.
+ * Updated to support per-user data isolation via ownerId.
  */
-@Entity(tableName = "plants")
+@Entity(
+    tableName = "plants",
+    primaryKeys = ["slug", "ownerId"]
+)
 data class PlantEntity(
-    @PrimaryKey
     val slug: String,
+    
+    /**
+     * The ID of the user who owns this data record. 
+     * Use "guest_user" for unauthenticated users.
+     */
+    val ownerId: String,
 
     val id: String = "",
     val commonName: String = "",

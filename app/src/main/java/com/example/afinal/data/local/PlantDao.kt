@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * 植物数据访问接口，定义了所有针对 "plants" 表的数据库操作。
+ * 已更新以支持多用户数据隔离。
  */
 @Dao
 interface PlantDao {
@@ -20,44 +21,44 @@ interface PlantDao {
     @Delete
     suspend fun deletePlant(plant: PlantEntity)
 
-    @Query("SELECT * FROM plants WHERE slug = :slug")
-    suspend fun getPlantBySlug(slug: String): PlantEntity?
+    @Query("SELECT * FROM plants WHERE slug = :slug AND ownerId = :ownerId")
+    suspend fun getPlantBySlug(slug: String, ownerId: String): PlantEntity?
 
-    @Query("SELECT * FROM plants WHERE id = :plantId")
-    suspend fun getPlantById(plantId: String): PlantEntity?
+    @Query("SELECT * FROM plants WHERE id = :plantId AND ownerId = :ownerId")
+    suspend fun getPlantById(plantId: String, ownerId: String): PlantEntity?
 
     /**
-     * 按最后更新时间降序获取所有植物，适用于首页展示（新数据置顶）。
-     * 使用 Flow 实现自动响应式更新。
+     * 按最后更新时间降序获取所有植物。
+     * 仅获取属于当前 ownerId 的数据。
      */
-    @Query("SELECT * FROM plants ORDER BY slug ASC")
-    fun getAllPlants(): Flow<List<PlantEntity>>
+    @Query("SELECT * FROM plants WHERE ownerId = :ownerId ORDER BY slug ASC")
+    fun getAllPlants(ownerId: String): Flow<List<PlantEntity>>
 
-    @Query("SELECT * FROM plants WHERE category = :category ORDER BY name ASC")
-    fun getPlantsByCategory(category: String): Flow<List<PlantEntity>>
+    @Query("SELECT * FROM plants WHERE category = :category AND ownerId = :ownerId ORDER BY name ASC")
+    fun getPlantsByCategory(category: String, ownerId: String): Flow<List<PlantEntity>>
 
-    @Query("SELECT * FROM plants WHERE season = :season ORDER BY name ASC")
-    fun getPlantsBySeason(season: String): Flow<List<PlantEntity>>
+    @Query("SELECT * FROM plants WHERE season = :season AND ownerId = :ownerId ORDER BY name ASC")
+    fun getPlantsBySeason(season: String, ownerId: String): Flow<List<PlantEntity>>
 
-    @Query("SELECT * FROM plants WHERE name LIKE '%' || :keyword || '%' ORDER BY lastUpdate DESC")
-    suspend fun searchPlants(keyword: String): List<PlantEntity>
+    @Query("SELECT * FROM plants WHERE name LIKE '%' || :keyword || '%' AND ownerId = :ownerId ORDER BY lastUpdate DESC")
+    suspend fun searchPlants(keyword: String, ownerId: String): List<PlantEntity>
 
-    @Query("SELECT * FROM plants ORDER BY RANDOM() LIMIT :limit")
-    suspend fun getRandomPlants(limit: Int): List<PlantEntity>
+    @Query("SELECT * FROM plants WHERE ownerId = :ownerId ORDER BY RANDOM() LIMIT :limit")
+    suspend fun getRandomPlants(limit: Int, ownerId: String): List<PlantEntity>
 
-    @Query("DELETE FROM plants")
-    suspend fun clearAllPlants()
+    @Query("DELETE FROM plants WHERE ownerId = :ownerId")
+    suspend fun clearAllPlants(ownerId: String)
 
-    @Query("SELECT COUNT(*) FROM plants")
-    suspend fun getPlantCount(): Int
+    @Query("SELECT COUNT(*) FROM plants WHERE ownerId = :ownerId")
+    suspend fun getPlantCount(ownerId: String): Int
 
     /** 局部更新：仅修改收藏状态 */
-    @Query("UPDATE plants SET isFavorite = :isFavorite WHERE slug = :slug")
-    suspend fun updateFavoriteStatus(slug: String, isFavorite: Boolean)
+    @Query("UPDATE plants SET isFavorite = :isFavorite WHERE slug = :slug AND ownerId = :ownerId")
+    suspend fun updateFavoriteStatus(slug: String, isFavorite: Boolean, ownerId: String)
 
-    @Query("SELECT * FROM plants WHERE isFavorite = 1 ORDER BY lastUpdate DESC")
-    fun getFavoritePlants(): Flow<List<PlantEntity>>
+    @Query("SELECT * FROM plants WHERE isFavorite = 1 AND ownerId = :ownerId ORDER BY lastUpdate DESC")
+    fun getFavoritePlants(ownerId: String): Flow<List<PlantEntity>>
 
-    @Query("SELECT slug FROM plants WHERE isFavorite = 1")
-    suspend fun getFavoriteIds(): List<String>
+    @Query("SELECT slug FROM plants WHERE isFavorite = 1 AND ownerId = :ownerId")
+    suspend fun getFavoriteIds(ownerId: String): List<String>
 }

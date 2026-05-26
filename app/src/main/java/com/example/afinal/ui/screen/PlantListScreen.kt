@@ -41,12 +41,6 @@ fun PlantListScreen(viewModel: PlantViewModel, onBack: () -> Unit, onNavigateToD
     val pullRefreshState = rememberPullToRefreshState()
     val gridState = rememberLazyGridState()
 
-    // Automatically clear search query when leaving the screen
-    DisposableEffect(Unit) {
-        onDispose {
-            viewModel.onSearchQueryChange("")
-        }
-    }
 
     // Smooth scroll to top after refresh finishes
     LaunchedEffect(isRefreshing) {
@@ -66,7 +60,10 @@ fun PlantListScreen(viewModel: PlantViewModel, onBack: () -> Unit, onNavigateToD
                     CenterAlignedTopAppBar(
                         title = { Text("Plant Encyclopedia", color = Color.White) },
                         navigationIcon = {
-                            IconButton(onClick = onBack) {
+                            IconButton(onClick = {
+                                viewModel.onSearchQueryChange("") // 返回前清空
+                                onBack()
+                            }){
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
                             }
                         },
