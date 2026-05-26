@@ -1,15 +1,30 @@
+# ======= 编译产物 / 临时文件 =======
+build/
+bin/
+gen/
+.externalNativeBuild/
+.cxx/
+
+# ======= IDE (Android Studio / IntelliJ) =======
+.idea/
 *.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+*.ipr
+*.iws
+
+# 排除不需要忽略的 IDE 共享配置（可选）
+!.idea/runConfigurations/
+!.idea/copyright/
+!.idea/iconloader.xml
+
+# ======= 本地配置文件 (包含敏感路径、密钥) =======
 local.properties
+.signing/
+secrets.properties
+
+# ======= 缓存与捕获 =======
+.gradle/
+/captures/
+
+# ======= 操作系统临时文件 =======
+.DS_Store
+Thumbs.db
