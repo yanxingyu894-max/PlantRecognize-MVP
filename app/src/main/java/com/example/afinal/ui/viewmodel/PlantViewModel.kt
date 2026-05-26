@@ -23,6 +23,9 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
     private val _selectedCategory = MutableStateFlow<String?>(null)
     val selectedCategory: StateFlow<String?> = _selectedCategory.asStateFlow()
 
+    private val _loggedInUserId = MutableStateFlow<String?>(null)
+    val loggedInUserId: StateFlow<String?> = _loggedInUserId.asStateFlow()
+
     // Persistent Daily Plant to prevent refreshing on every HomeScreen recomposition
     private val _dailyPlant = MutableStateFlow<Plant?>(null)
     val dailyPlant: StateFlow<Plant?> = _dailyPlant.asStateFlow()
@@ -195,7 +198,15 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
     }
 
     suspend fun loginUser(username: String, password: String): Result<Unit> {
-        return repository.loginUser(username, password)
+        val result = repository.loginUser(username, password)
+        if (result.isSuccess) {
+            _loggedInUserId.value = username
+        }
+        return result
+    }
+
+    fun logout() {
+        _loggedInUserId.value = null
     }
 
     fun toggleFavorite(plant: Plant) {

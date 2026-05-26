@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -44,6 +45,7 @@ fun MyScreen(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val favorites by viewModel.favoritePlants.collectAsState()
+    val loggedInUserId by viewModel.loggedInUserId.collectAsState()
 
     Scaffold(
         bottomBar = {
@@ -73,9 +75,17 @@ fun MyScreen(
         containerColor = PlantBackground
     ) { padding ->
         if (isLandscape) {
-            MyLandscapeContent(padding, favorites, onLogin, onRegister, onAbout)
+            MyLandscapeContent(
+                padding, favorites, loggedInUserId, onLogin, onRegister, 
+                onLogout = { viewModel.logout() }, 
+                onAbout = onAbout
+            )
         } else {
-            MyPortraitContent(padding, favorites, onLogin, onRegister, onAbout)
+            MyPortraitContent(
+                padding, favorites, loggedInUserId, onLogin, onRegister, 
+                onLogout = { viewModel.logout() }, 
+                onAbout = onAbout
+            )
         }
     }
 }
@@ -84,8 +94,10 @@ fun MyScreen(
 fun MyPortraitContent(
     padding: PaddingValues,
     favorites: List<Plant>,
+    username: String?,
     onLogin: () -> Unit,
     onRegister: () -> Unit,
+    onLogout: () -> Unit,
     onAbout: () -> Unit
 ) {
     Column(
@@ -98,7 +110,7 @@ fun MyPortraitContent(
     ) {
         Spacer(modifier = Modifier.height(40.dp))
         
-        ProfileHeader()
+        ProfileHeader(username)
 
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -108,7 +120,7 @@ fun MyPortraitContent(
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        MenuCard(onLogin, onRegister, onAbout)
+        MenuCard(username, onLogin, onRegister, onLogout, onAbout)
         
         Spacer(modifier = Modifier.weight(1f))
         
@@ -121,8 +133,10 @@ fun MyPortraitContent(
 fun MyLandscapeContent(
     padding: PaddingValues,
     favorites: List<Plant>,
+    username: String?,
     onLogin: () -> Unit,
     onRegister: () -> Unit,
+    onLogout: () -> Unit,
     onAbout: () -> Unit
 ) {
     Row(
@@ -137,7 +151,7 @@ fun MyLandscapeContent(
             modifier = Modifier.weight(1f),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            ProfileHeader()
+            ProfileHeader(username)
         }
         
         Spacer(modifier = Modifier.width(32.dp))
@@ -148,7 +162,7 @@ fun MyLandscapeContent(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            MenuCard(onLogin, onRegister, onAbout)
+            MenuCard(username, onLogin, onRegister, onLogout, onAbout)
             
             Spacer(modifier = Modifier.height(16.dp))
             VersionInfo()
@@ -157,7 +171,7 @@ fun MyLandscapeContent(
 }
 
 @Composable
-fun ProfileHeader() {
+fun ProfileHeader(username: String? = null) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Surface(
             modifier = Modifier.size(100.dp),
@@ -177,14 +191,14 @@ fun ProfileHeader() {
         Spacer(modifier = Modifier.height(16.dp))
         
         Text(
-            text = "Plant Explorer",
+            text = username ?: "Plant Explorer",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = PlantGreenDark
         )
         
         Text(
-            text = "Discover the secrets of nature",
+            text = if (username != null) "Welcome back to nature" else "Discover the secrets of nature",
             fontSize = 14.sp,
             color = Color.Gray
         )
@@ -233,7 +247,13 @@ fun FavoriteThumbnail(plant: Plant) {
 }
 
 @Composable
-fun MenuCard(onLogin: () -> Unit, onRegister: () -> Unit, onAbout: () -> Unit) {
+fun MenuCard(
+    username: String?,
+    onLogin: () -> Unit,
+    onRegister: () -> Unit,
+    onLogout: () -> Unit,
+    onAbout: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -241,17 +261,26 @@ fun MenuCard(onLogin: () -> Unit, onRegister: () -> Unit, onAbout: () -> Unit) {
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
-            MyMenuItem(
-                icon = Icons.Default.Login,
-                title = "Login",
-                onClick = onLogin
-            )
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = PlantBackground, thickness = 1.dp)
-            MyMenuItem(
-                icon = Icons.Default.AppRegistration,
-                title = "Register Now",
-                onClick = onRegister
-            )
+            if (username == null) {
+                MyMenuItem(
+                    icon = Icons.Default.Login,
+                    title = "Login",
+                    onClick = onLogin
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = PlantBackground, thickness = 1.dp)
+                MyMenuItem(
+                    icon = Icons.Default.AppRegistration,
+                    title = "Register Now",
+                    onClick = onRegister
+                )
+            } else {
+                MyMenuItem(
+                    icon = Icons.AutoMirrored.Filled.ExitToApp,
+                    title = "Logout",
+                    onClick = onLogout
+                )
+            }
+
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = PlantBackground, thickness = 1.dp)
             MyMenuItem(
                 icon = Icons.Default.Info,
