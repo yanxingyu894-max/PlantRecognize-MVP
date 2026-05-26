@@ -48,20 +48,20 @@ class PlantRepository(
         entities.any { !it.isDetailLoaded }
     }
 
-    suspend fun updateFavoriteStatus(id: String, isFavorite: Boolean) {
-        plantDao.updateFavoriteStatus(id, isFavorite)
+    suspend fun updateFavoriteStatus(slug: String, isFavorite: Boolean) {
+        plantDao.updateFavoriteStatus(slug, isFavorite)
     }
 
     // This fulfills Task 1: Unified interface for Trefle + DeepSeek
-    suspend fun getPlantById(id: String, forceRefresh: Boolean = false): Plant? {
-        val local = plantDao.getPlantById(id)
+    suspend fun getPlantBySlug(slug: String, forceRefresh: Boolean = false): Plant? {
+        val local = plantDao.getPlantBySlug(slug)
 
         if (local != null && !forceRefresh && local.isDetailLoaded) {
             return local.toPlant()
         }
 
         return try {
-            val response = trefleApi.getPlantBySlug(local?.slug ?: "", TREFLE_TOKEN)
+            val response = trefleApi.getPlantBySlug(slug, TREFLE_TOKEN)
             var entity = response.data.toEntity(isDetail = true)
 
             // DeepSeek Augmentation
@@ -84,7 +84,7 @@ class PlantRepository(
             plantDao.insertPlant(entity)
             entity.toPlant()
         } catch (e: Exception) {
-            Log.e("PlantRepository", "API detail fetch failed: ${local?.slug}", e)
+            Log.e("PlantRepository", "API detail fetch failed: $slug", e)
             local?.toPlant()
         }
     }
@@ -132,10 +132,11 @@ class PlantRepository(
                 return Result.success(fallbackEntity.toPlant().copy(confidence = bestMatch.score))
             }
 
+            // For recognition, we still fetch details immediately as the user is waiting for this specific result
             val detailResponse = trefleApi.getPlantBySlug(treflePlant.slug!!, TREFLE_TOKEN)
             var entity = detailResponse.data.toEntity(isDetail = true)
 
-            val existing = plantDao.getPlantById(entity.id)
+            val existing = plantDao.getPlantBySlug(entity.slug)
             if (existing?.isFavorite == true) {
                 entity = entity.copy(isFavorite = true)
             }
@@ -149,8 +150,10 @@ class PlantRepository(
 
     private fun createFallbackEntity(species: PlantNetSpecies, confidence: Double): PlantEntity {
         val name = if (species.commonNames.isNotEmpty()) species.commonNames[0] else species.scientificNameWithoutAuthor
+        val slug = "fallback_${species.scientificName.hashCode()}"
         return PlantEntity(
-            id = "fallback_${species.scientificName.hashCode()}",
+            slug = slug,
+            id = slug,
             name = name,
             alias = species.scientificName,
             scientificName = species.scientificName,
@@ -170,12 +173,12 @@ class PlantRepository(
             val randomPage = if (total / pageSize > 1) (1..minOf(total / pageSize, 100)).random() else 1
             val listResponse = trefleApi.getPlants(TREFLE_TOKEN, page = randomPage, pageSize = pageSize)
 
-            val favoriteIds = plantDao.getFavoriteIds().toSet()
+            val favoriteSlugs = plantDao.getFavoriteIds().toSet()
 
             // Optimized: ONLY map to local entities to prevent blocking initial load
             val fullEntities = listResponse.data.map { dto ->
                 var entity = dto.toEntity(isDetail = false)
-                if (favoriteIds.contains(entity.id)) {
+                if (favoriteSlugs.contains(entity.slug)) {
                     entity = entity.copy(isFavorite = true)
                 }
                 entity
@@ -189,7 +192,7 @@ class PlantRepository(
         }
     }
 
-    // Task 2: External Search Function
+    // Task 2: External Search Function (Optimized for Speed)
     suspend fun searchExternalPlant(query: String): Result<List<Plant>> {
         return try {
             // 1. Ask DeepSeek for scientific name
@@ -199,7 +202,7 @@ class PlantRepository(
             val trefleResults = trefleApi.searchPlants(TREFLE_TOKEN, scientificName)
             
             if (trefleResults.data.isEmpty()) {
-                // Task 2.3: Fallback to DeepSeek only
+                // Fallback to DeepSeek only
                 val aiInfo = fetchDeepSeekInfo(query)
                 if (aiInfo != null) {
                     val entity = aiInfo.toEntity()
@@ -209,28 +212,15 @@ class PlantRepository(
                 return Result.success(emptyList())
             }
 
-            // Task 2.2: Prioritize secondary API calls (Fetch details immediately for these search results)
-            val processedPlants = trefleResults.data.take(5).map { dto ->
-                try {
-                    val detail = trefleApi.getPlantBySlug(dto.slug ?: "", TREFLE_TOKEN)
-                    var entity = detail.data.toEntity(isDetail = true)
-                    
-                    // Augment with DeepSeek
-                    val ai = fetchDeepSeekInfo(entity.commonName.ifBlank { entity.scientificName })
-                    if (ai != null) {
-                        entity = entity.copy(
-                            desc = if (entity.desc.contains("belonging to the")) ai.description ?: entity.desc else entity.desc,
-                            care = if (entity.care.isBlank()) ai.careGuide ?: "" else entity.care
-                        )
-                    }
-                    plantDao.insertPlant(entity)
-                    entity.toPlant()
-                } catch (e: Exception) {
-                    dto.toEntity(false).toPlant()
-                }
+            // Optimization: Map results to shallow entities and return immediately to UI
+            val plants = trefleResults.data.map { dto ->
+                val entity = dto.toEntity(isDetail = false)
+                // Insert into DB so that background sync can pick it up
+                plantDao.insertPlant(entity)
+                entity.toPlant()
             }
             
-            Result.success(processedPlants)
+            Result.success(plants)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -247,8 +237,10 @@ class PlantRepository(
     }
 
     private fun DeepSeekPlantInfo.toEntity(): PlantEntity {
+        val generatedSlug = "ds_${(scientificName ?: commonName).hashCode()}"
         return PlantEntity(
-            id = "ds_${(scientificName ?: commonName).hashCode()}",
+            slug = generatedSlug,
+            id = generatedSlug,
             name = commonName ?: scientificName ?: "Unknown",
             commonName = commonName ?: "",
             scientificName = scientificName ?: "",
@@ -284,16 +276,13 @@ class PlantRepository(
                         )
                     }
 
-                    plantDao.deletePlant(entity) 
-
-
                     if (entity.isFavorite) {
                         updatedEntity = updatedEntity.copy(isFavorite = true)
                     }
                     plantDao.insertPlant(updatedEntity)
                     if (!immediate) {
                         // Delay to execute gradually & prevent choking the UI thread or rate limits
-                        delay(200)
+                        delay(1000)
                     }
                 } catch (e: CancellationException) {
                     throw e // Propagate cancellation so the suspend function can be safely aborted
@@ -338,10 +327,10 @@ class PlantRepository(
         }
 
         return PlantEntity(
+            slug = slug ?: "",
             id = id.toString(),
             name = commonName ?: scientificName,
             alias = scientificName,
-            slug = slug ?: "",
             commonName = commonName ?: "",
             scientificName = scientificName,
             family = familyName,
@@ -478,7 +467,7 @@ class PlantRepository(
     }
 
     private fun PlantEntity.toPlant() = Plant(
-        id = id,
+        id = slug,
         name = name,
         alias = alias,
         commonName = commonName,

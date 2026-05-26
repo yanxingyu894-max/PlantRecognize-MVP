@@ -20,6 +20,9 @@ interface PlantDao {
     @Delete
     suspend fun deletePlant(plant: PlantEntity)
 
+    @Query("SELECT * FROM plants WHERE slug = :slug")
+    suspend fun getPlantBySlug(slug: String): PlantEntity?
+
     @Query("SELECT * FROM plants WHERE id = :plantId")
     suspend fun getPlantById(plantId: String): PlantEntity?
 
@@ -49,16 +52,12 @@ interface PlantDao {
     suspend fun getPlantCount(): Int
 
     /** 局部更新：仅修改收藏状态 */
-    @Query("UPDATE plants SET isFavorite = :isFavorite WHERE id = :plantId")
-    suspend fun updateFavoriteStatus(plantId: String, isFavorite: Boolean)
+    @Query("UPDATE plants SET isFavorite = :isFavorite WHERE slug = :slug")
+    suspend fun updateFavoriteStatus(slug: String, isFavorite: Boolean)
 
     @Query("SELECT * FROM plants WHERE isFavorite = 1 ORDER BY lastUpdate DESC")
     fun getFavoritePlants(): Flow<List<PlantEntity>>
 
-    @Query("SELECT id FROM plants WHERE isFavorite = 1")
+    @Query("SELECT slug FROM plants WHERE isFavorite = 1")
     suspend fun getFavoriteIds(): List<String>
-
-    //
-    @Query("SELECT * FROM plants WHERE slug = :slug LIMIT 1")
-    suspend fun getPlantBySlug(slug: String): PlantEntity?
 }

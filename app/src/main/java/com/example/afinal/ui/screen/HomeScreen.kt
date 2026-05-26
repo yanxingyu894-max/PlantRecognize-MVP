@@ -352,35 +352,43 @@ fun MenuTile(
             .padding(16.dp)
     ) {
         if (isLandscape) {
-            // Optimized Landscape layout to avoid position conflict and multi-line titles
-            // Subtitle and Icon are placed at the top end (aligned right)
-            Row(
-                modifier = Modifier.fillMaxWidth().align(Alignment.TopEnd),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
+            // 横屏布局：文字在左侧上下换行排列，图标在右上角独立放置
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(0.8f) // 留出右侧空间给图标，防止长文本撞上图标
+                    .align(Alignment.CenterStart),
+                verticalArrangement = Arrangement.Center
             ) {
+                Text(
+                    text = title,
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp)) // 两行之间的间距
                 Text(
                     text = subtitle,
                     color = Color.White.copy(alpha = 0.8f),
                     fontSize = 11.sp,
-                    textAlign = TextAlign.End,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                    overflow = TextOverflow.Ellipsis
                 )
-                Icon(icon, contentDescription = null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(24.dp))
             }
-            // Title is anchored at the bottom start to prevent overlapping
-            Text(
-                text = title,
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.BottomStart),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+
+            // 图标右上角对齐
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.9f),
+                modifier = Modifier
+                    .size(24.dp)
+                    .align(Alignment.TopEnd)
             )
         } else {
+            // 竖屏原有布局保持不变
             Column(modifier = Modifier.align(Alignment.BottomStart)) {
                 Icon(icon, contentDescription = null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(28.dp))
                 Spacer(modifier = Modifier.height(4.dp))

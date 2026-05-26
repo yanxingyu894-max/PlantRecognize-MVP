@@ -41,6 +41,13 @@ fun PlantListScreen(viewModel: PlantViewModel, onBack: () -> Unit, onNavigateToD
     val pullRefreshState = rememberPullToRefreshState()
     val gridState = rememberLazyGridState()
 
+    // Automatically clear search query when leaving the screen
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.onSearchQueryChange("")
+        }
+    }
+
     // Smooth scroll to top after refresh finishes
     LaunchedEffect(isRefreshing) {
         if (!isRefreshing && (plants.isNotEmpty() || initialPlants.isNotEmpty())) {

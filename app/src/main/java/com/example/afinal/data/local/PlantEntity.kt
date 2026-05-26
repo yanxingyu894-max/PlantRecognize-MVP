@@ -10,9 +10,9 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "plants")
 data class PlantEntity(
     @PrimaryKey
-    val id: String,
+    val slug: String,
 
-    val slug: String = "",
+    val id: String = "",
     val commonName: String = "",
     val scientificName: String = "",
     val family: String = "",

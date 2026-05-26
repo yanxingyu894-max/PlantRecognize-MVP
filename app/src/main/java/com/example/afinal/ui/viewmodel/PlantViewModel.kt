@@ -199,6 +199,7 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
     }
 
     fun toggleFavorite(plant: Plant) {
+        // Now plant.id holds the slug as the primary identifier
         viewModelScope.launch { repository.updateFavoriteStatus(plant.id, !plant.isFavorite) }
     }
 
@@ -222,6 +223,7 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
     }
 
     suspend fun getPlantById(id: String): Plant? {
-        return repository.getPlantById(id)
+        // Redirect to slug-based fetch as slug is now the primary key
+        return repository.getPlantBySlug(id)
     }
 }
