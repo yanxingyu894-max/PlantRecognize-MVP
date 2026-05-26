@@ -21,6 +21,7 @@ android {
         // Read API keys from project properties (set in gradle.properties or via -P)
         buildConfigField("String", "PLANTNET_API_KEY", "\"${project.findProperty("PLANTNET_API_KEY") ?: ""}\"")
         buildConfigField("String", "TREFLE_API_TOKEN", "\"${project.findProperty("TREFLE_API_TOKEN") ?: ""}\"")
+        buildConfigField("String", "DEEPSEEK_API_KEY", "\"${project.findProperty("DEEPSEEK_API_KEY") ?: ""}\"")
     }
 
     buildTypes {
