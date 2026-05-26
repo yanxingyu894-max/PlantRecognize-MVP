@@ -32,7 +32,8 @@ class MainActivity : ComponentActivity() {
             database.plantDao(),
             database.userDao(),
             RetrofitClient.trefleApiService,
-            RetrofitClient.plantNetApiService
+            RetrofitClient.plantNetApiService,
+            RetrofitClient.deepSeekApiService
         )
 
         setContent {

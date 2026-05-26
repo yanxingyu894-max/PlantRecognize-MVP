@@ -27,6 +27,11 @@ object RetrofitClient {
     private const val PLANTNET_BASE_URL = "https://my-api.plantnet.org/"
 
     /**
+     * DeepSeek API 基础地址
+     */
+    private const val DEEPSEEK_BASE_URL = "https://api.deepseek.com/"
+
+    /**
      * 日志拦截器：打印完整请求/响应信息
      * 级别 BODY：输出请求头、请求体、响应头、响应体
      * 仅在 Debug 环境开启，Release 应关闭以提升性能与安全
@@ -75,5 +80,12 @@ object RetrofitClient {
      */
     val plantNetApiService: PlantNetApiService by lazy {
         createRetrofit(PLANTNET_BASE_URL).create(PlantNetApiService::class.java)
+    }
+
+    /**
+     * DeepSeek API 服务实例
+     */
+    val deepSeekApiService: DeepSeekApiService by lazy {
+        createRetrofit(DEEPSEEK_BASE_URL).create(DeepSeekApiService::class.java)
     }
 }
