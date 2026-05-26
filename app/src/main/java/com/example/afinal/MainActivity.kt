@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -54,7 +55,7 @@ class MainActivity : ComponentActivity() {
                             onNavigateToFav = { navController.navigateSafe("fav") },
                             onNavigateToRecognition = { navController.navigateSafe("recognition") },
                             onNavigateToCategory = { navController.navigateSafe("category") },
-                            onNavigateToMy = { navController.navigateSafe("my") },
+                            onNavigateToMy = { navController.navigateTab("my") },
                             onNavigateToDetail = { plantId -> navController.navigateSafe("detail/$plantId") },
                             viewModel = viewModel
                         )
@@ -97,7 +98,7 @@ class MainActivity : ComponentActivity() {
                     composable("my") {
                         MyScreen(
                             viewModel = viewModel,
-                            onNavigateToHome = { navController.navigateSafe("home") },
+                            onNavigateToHome = { navController.navigateTab("home") },
                             onLogin = { navController.navigateSafe("login") },
                             onRegister = { navController.navigateSafe("register") },
                             onAbout = { navController.navigateSafe("about") },
@@ -170,6 +171,27 @@ class MainActivity : ComponentActivity() {
 fun NavHostController.navigateSafe(route: String) {
     if (currentBackStackEntry?.lifecycleIsResumed() == true) {
         navigate(route)
+    }
+}
+
+/**
+ * Specialized navigation for bottom bar tabs to avoid backstack buildup and loops
+ */
+fun NavHostController.navigateTab(route: String) {
+    if (currentBackStackEntry?.lifecycleIsResumed() == true) {
+        navigate(route) {
+            // Pop up to the start destination of the graph to
+            // avoid building up a large stack of destinations
+            // on the back stack as users select items
+            popUpTo(graph.findStartDestination().id) {
+                saveState = true
+            }
+            // Avoid multiple copies of the same destination when
+            // reselecting the same item
+            launchSingleTop = true
+            // Restore state when reselecting a previously selected item
+            restoreState = true
+        }
     }
 }
 
