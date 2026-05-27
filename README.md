@@ -12,12 +12,13 @@
 
 ## 📸 功能截图
 
-![主页](screenshots/homePage.png)
-![识别](screenshots/recog.png)
-![详情](screenshots/detail.png)
-![百科](screenshots/EncyclopediaAndSearch.png)
-![收藏](screenshots/collect.png)
-![分类](screenshots/categoryBySeason.png)
+| 主页预览 | 拍照识别 | 植物详情 |
+| :---: | :---: | :---: |
+| ![主页](screenshots/homePage.png) | ![识别](screenshots/recog.png) | ![详情](screenshots/detail.png) |
+
+| 百科搜索 | 个人收藏 | 分类功能 |
+| :---: | :---: | :---: |
+| ![百科](screenshots/EncyclopediaAndSearch.png) | ![收藏](screenshots/collect.png) | ![分类](screenshots/categoryBySeason.png) |
 
 
 
@@ -29,7 +30,10 @@
 
 ## 📦 APK 下载
 
-[点击下载最新发布版本 (预占位)](#)
+>[Download APK](https://github.com/yanxingyu894-max/PlantRecognize-MVP/releases/download/v1.0-release/app-debug.apk)
+
+> 你也可以在 [Releases 页面](https://github.com/yanxingyu894-max/PlantRecognize-MVP/releases/tag/v1.0-release) 查看所有历史版本。
+
 
 ## 📂 项目结构
 
@@ -55,7 +59,7 @@ com.example.afinal
 - **数据库**: Room
 - **图片加载**: Coil
 - **相机**: CameraX
-- **架构**: MVVM (Model-View-ViewModel)
+- **架构**: [MVVM (Model-View-ViewModel)](ARCHITECTURE.md)
 
 ---
 *本项目仅供学习与交流使用。*
