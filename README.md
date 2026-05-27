@@ -1,12 +1,61 @@
-# PlantRecognize-MVP
+# Smart Recognizer (识花小助手)
 
-## 项目简介
-这是一个基于 MVP (Model-View-Presenter) 架构开发的植物识别 Android 应用程序。该项目旨在帮助用户快速识别各种植物，并提供相关的详细信息。
+一款基于 Jetpack Compose 开发的现代 Android 植物识别应用。集成了 PlantNet 图像识别、Trefle 植物数据库以及 DeepSeek AI 智能搜索功能，旨在为用户提供从识别、查询到收藏的一站式植物知识体验。
 
-## 主要功能
-- 植物识别：通过摄像头或相册图片识别植物种类。
-- 详情查看：提供植物的名称、特征、养护方法等详细信息。
-- 历史记录：保存用户的识别历史。
+## 🌟 核心功能
 
-## 技术栈
-技术栈- 前端：Android(Kotlin)- 数据：本地JSON- 识别：免费植物API
+- **智能识别**：利用 CameraX 结合 PlantNet API，快速精准识别多种植物。
+- **植物百科**：海量植物数据库，支持按季节分类查看及关键字搜索。
+- **AI 助手**：集成 DeepSeek 模型，提供专业的植物养护建议和知识解答。
+- **个人收藏**：便捷收藏喜爱的植物，建立个人的“数字花园”。
+- **精美 UI**：采用 Material 3 设计规范，支持深色模式与流畅动画。
+
+## 📸 功能截图
+
+![主页](screenshots/homePage.png)
+![识别](screenshots/recog.png)
+![详情](screenshots/detail.png)
+![百科](screenshots/EncyclopediaAndSearch.png)
+![收藏](screenshots/collect.png)
+![分类](screenshots/categoryBySeason.png)
+
+
+
+## ⚙️ 运行环境
+
+- **最低 Android 版本**：Android 13.0 (API Level 33)
+- **推荐 Android 版本**：Android 14.0 或更高
+- **硬件要求**：需具备相机权限及联网环境
+
+## 📦 APK 下载
+
+[点击下载最新发布版本 (预占位)](#)
+
+## 📂 项目结构
+
+```text
+com.example.afinal
+├── data/
+│   ├── local/        # Room 数据库配置与 DAO
+│   ├── remote/       # Retrofit API 服务接口 (PlantNet, Trefle, DeepSeek)
+│   ├── repository/   # 数据仓库层，处理本地与远程数据逻辑
+│   └── model/        # 数据实体类与 DTO
+├── ui/
+│   ├── screens/      # 各功能模块的 Compose 界面
+│   ├── viewmodel/    # 业务逻辑与界面状态管理
+│   ├── component/    # 通用自定义 Compose 组件
+│   └── theme/        # 应用主题与颜色配置
+└── util/             # 工具类（网络、权限、图片处理等）
+```
+
+## 🛠️ 技术栈
+
+- **UI**: Jetpack Compose (Material 3)
+- **网络**: Retrofit + OkHttp
+- **数据库**: Room
+- **图片加载**: Coil
+- **相机**: CameraX
+- **架构**: MVVM (Model-View-ViewModel)
+
+---
+*本项目仅供学习与交流使用。*
