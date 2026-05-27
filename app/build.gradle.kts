@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,10 +7,17 @@ plugins {
     alias(libs.plugins.google.devtools.ksp)
 }
 
+// 将逻辑挪到 plugins 之后
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use { load(it) }
+    }
+}
+
 android {
     namespace = "com.example.afinal"
     compileSdk = 35
-
 
     defaultConfig {
         applicationId = "com.example.afinal"
@@ -18,10 +27,18 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // Read API keys from project properties (set in gradle.properties or via -P)
-        buildConfigField("String", "PLANTNET_API_KEY", "\"${project.findProperty("PLANTNET_API_KEY") ?: ""}\"")
-        buildConfigField("String", "TREFLE_API_TOKEN", "\"${project.findProperty("TREFLE_API_TOKEN") ?: ""}\"")
-        buildConfigField("String", "DEEPSEEK_API_KEY", "\"${project.findProperty("DEEPSEEK_API_KEY") ?: ""}\"")
+
+        // 优先从 local.properties 读取，读不到再看 project 属性
+        val plantNetKey = localProperties.getProperty("PLANTNET_API_KEY")
+            ?: project.findProperty("PLANTNET_API_KEY")?.toString() ?: ""
+        val trefleToken = localProperties.getProperty("TREFLE_API_TOKEN")
+            ?: project.findProperty("TREFLE_API_TOKEN")?.toString() ?: ""
+        val deepseekKey = localProperties.getProperty("DEEPSEEK_API_KEY")
+            ?: project.findProperty("DEEPSEEK_API_KEY")?.toString() ?: ""
+
+        buildConfigField("String", "PLANTNET_API_KEY", "\"$plantNetKey\"")
+        buildConfigField("String", "TREFLE_API_TOKEN", "\"$trefleToken\"")
+        buildConfigField("String", "DEEPSEEK_API_KEY", "\"$deepseekKey\"")
     }
 
     buildTypes {
@@ -37,7 +54,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    
+
     kotlinOptions {
         jvmTarget = "17"
     }
@@ -61,7 +78,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
-    
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -69,7 +86,7 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-    
+
     // CameraX
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
