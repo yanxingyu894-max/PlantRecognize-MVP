@@ -83,12 +83,12 @@ fun PlantListScreen(viewModel: PlantViewModel, onBack: () -> Unit, onNavigateToD
                             placeholder = { Text("Search plant name...") },
                             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                             trailingIcon = {
-                                if (searchQuery.isNotBlank() && plants.isEmpty() && !isExternalSearching) {
+                                if (isExternalSearching) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                } else if (searchQuery.isNotBlank()) {
                                     TextButton(onClick = { viewModel.performExternalSearch() }) {
                                         Text("AI Search", color = PlantGreenPrimary)
                                     }
-                                } else if (isExternalSearching) {
-                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                                 }
                             },
                             shape = RoundedCornerShape(12.dp),

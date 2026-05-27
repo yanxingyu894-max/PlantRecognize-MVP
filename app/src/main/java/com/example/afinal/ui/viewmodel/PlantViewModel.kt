@@ -52,25 +52,32 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
     private val _isExternalSearching = MutableStateFlow(false)
     val isExternalSearching: StateFlow<Boolean> = _isExternalSearching.asStateFlow()
 
-    // 核心数据流：会自动随 repository.currentUserId 的改变而切换数据源
     val allPlants: StateFlow<List<Plant>> = combine(
         _searchQuery,
         _selectedCategory,
-        repository.allPlants,
+        repository.allPlants, // 这是来自数据库的响应式流
         _externalSearchResults
-    ) { query, category, plants, external ->
-        val localFiltered = plants.filter { plant ->
+    ) { query, category, localPlants, external ->
+        val localFiltered = localPlants.filter { plant ->
             val hasImage = plant.imageUrl.isNotBlank()
             val matchesQuery = plant.name.contains(query, ignoreCase = true) ||
                     plant.alias.contains(query, ignoreCase = true)
             val matchesCategory = category == null || plant.category == category
             hasImage && matchesQuery && matchesCategory
         }
-        
-        if (query.isNotBlank() && localFiltered.isEmpty()) {
-            external
+
+        // 修改：当进行搜索时，合并本地过滤结果和外部搜索结果
+        val baseList = if (query.isNotBlank()) {
+            (localFiltered + external).distinctBy { it.id }
         } else {
             localFiltered
+        }
+
+        // 核心修复：将 baseList 中的收藏状态与数据库中的最新状态同步
+        val favoriteStatusMap = localPlants.associate { it.id to it.isFavorite }
+        baseList.map { plant ->
+            val currentFavorite = favoriteStatusMap[plant.id] ?: plant.isFavorite
+            plant.copy(isFavorite = currentFavorite)
         }
     }.stateIn(
         scope = viewModelScope,

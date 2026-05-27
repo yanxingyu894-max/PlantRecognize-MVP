@@ -32,6 +32,9 @@ abstract class PlantDatabase : RoomDatabase() {
         }
 
         private fun buildDatabase(context: Context): PlantDatabase {
+            //val dbName = "plant_database"
+            //context.deleteDatabase(dbName)
+
             return Room.databaseBuilder(
                 context.applicationContext,
                 PlantDatabase::class.java,

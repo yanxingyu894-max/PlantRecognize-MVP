@@ -155,6 +155,19 @@ class PlantRepository(
             val detailResponse = trefleApi.getPlantBySlug(treflePlant.slug!!, TREFLE_TOKEN)
             var entity = detailResponse.data.toEntity(isDetail = true, userId = userId)
 
+            // 注入 DeepSeek 增强逻辑
+            val aiInfo = fetchDeepSeekInfo(entity.commonName.ifBlank { entity.scientificName })
+            if (aiInfo != null) {
+                entity = entity.copy(
+                    desc = if (entity.desc.contains("This is a plant belonging to the")) aiInfo.description ?: entity.desc else entity.desc,
+                    care = if (entity.care.isBlank()) aiInfo.careGuide ?: "" else entity.care,
+                    flowerColor = if (entity.flowerColor.isBlank()) aiInfo.flowerColor ?: "" else entity.flowerColor,
+                    toxicity = if (entity.toxicity.isBlank()) aiInfo.toxicity ?: "" else entity.toxicity,
+                    edible = if (!entity.edible) aiInfo.edible ?: false else true,
+                    nativeDistribution = if (entity.nativeDistribution.isBlank()) aiInfo.nativeDistribution ?: "" else entity.nativeDistribution
+                )
+            }
+
             val existing = plantDao.getPlantBySlug(entity.slug, userId)
             if (existing?.isFavorite == true) {
                 entity = entity.copy(isFavorite = true)
@@ -212,16 +225,24 @@ class PlantRepository(
         }
     }
 
+
     suspend fun searchExternalPlant(query: String): Result<List<Plant>> {
         val userId = getUserId()
         return try {
             val scientificName = fetchScientificNameFromDeepSeek(query) ?: query
             val trefleResults = trefleApi.searchPlants(TREFLE_TOKEN, scientificName)
-            
+
+            // 获取当前用户的所有收藏 ID，用于同步状态
+            val favoriteSlugs = plantDao.getFavoriteIds(userId).toSet()
+
             if (trefleResults.data.isEmpty()) {
                 val aiInfo = fetchDeepSeekInfo(query)
                 if (aiInfo != null) {
-                    val entity = aiInfo.toEntity(userId)
+                    var entity = aiInfo.toEntity(userId)
+                    // 关键修复：检查并保留收藏状态
+                    if (favoriteSlugs.contains(entity.slug)) {
+                        entity = entity.copy(isFavorite = true)
+                    }
                     plantDao.insertPlant(entity)
                     return Result.success(listOf(entity.toPlant()))
                 }
@@ -229,11 +250,15 @@ class PlantRepository(
             }
 
             val plants = trefleResults.data.map { dto ->
-                val entity = dto.toEntity(isDetail = false, userId = userId)
+                var entity = dto.toEntity(isDetail = false, userId = userId)
+                // 关键修复：检查并保留收藏状态
+                if (favoriteSlugs.contains(entity.slug)) {
+                    entity = entity.copy(isFavorite = true)
+                }
                 plantDao.insertPlant(entity)
                 entity.toPlant()
             }
-            
+
             Result.success(plants)
         } catch (e: Exception) {
             Result.failure(e)
